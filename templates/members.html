@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}会员管理{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/members.css') }}">
+{% endblock %}
+
+{% block content %}
+<header class="topbar">
+    <div>
+        <div class="eyebrow">会员中心</div>
+        <h1>会员管理</h1>
+        <p>普通会员预存会员费；超级会员免会员费，上桌不参与台费分摊</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('order_list_page') }}" class="btn btn-secondary">订单列表</a>
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">返回看板</a>
+    </div>
+</header>
+
+<div class="card rule">
+    普通会员：开卡及补充的会员费计入当天收入，上桌时从余额扣除台费。超级会员：无需会员费，上桌时本人台费直接减免，也不占用其他人员的台费分摊。
+</div>
+
+<section class="card">
+    <h2 class="card-title">新增普通会员</h2>
+    <form class="add-form" method="post" action="{{ url_for('member_add') }}">
+        {% include "_csrf.html" %}
+        <input class="form-control" type="text" name="name" maxlength="50" placeholder="输入会员姓名" aria-label="普通会员姓名" required>
+        <input class="form-control" type="number" name="fee" min="0.01" step="0.01" inputmode="decimal" placeholder="会员费金额" aria-label="会员费金额" required>
+        <button class="btn btn-primary" type="submit">添加普通会员</button>
+    </form>
+</section>
+
+<section class="card">
+    <h2 class="card-title">新增超级会员</h2>
+    <p class="field-note">无需添加会员费，上桌不参与台费分摊。</p>
+    <form class="add-form" method="post" action="{{ url_for('member_add_super') }}">
+        {% include "_csrf.html" %}
+        <input class="form-control" type="text" name="name" maxlength="50" placeholder="输入超级会员姓名" aria-label="超级会员姓名" required>
+        <button class="btn btn-outline-warning" type="submit">添加超级会员</button>
+    </form>
+</section>
+
+{% if normal_members %}
+<section class="card">
+    <h2 class="card-title">补充会员费</h2>
+    <form class="add-form" method="post" action="{{ url_for('member_recharge') }}">
+        {% include "_csrf.html" %}
+        <select class="form-select" name="member_id" aria-label="选择普通会员" required>
+            <option value="">选择普通会员</option>
+            {% for member in normal_members %}
+            <option value="{{ member.id }}">{{ member.name }}（余额 ¥{{ '%.2f'|format(member.fee_balance or 0) }}）</option>
+            {% endfor %}
+        </select>
+        <input class="form-control" type="number" name="amount" min="0.01" step="0.01" inputmode="decimal" placeholder="补充金额" aria-label="补充金额" required>
+        <button class="btn btn-primary" type="submit">确认补充</button>
+    </form>
+</section>
+{% endif %}
+
+<div class="list-head">
+    <h2>会员列表</h2>
+    <span class="list-count">共 {{ members|length }} 位{% if super_member_count %}，其中超级会员 {{ super_member_count }} 位{% endif %}</span>
+</div>
+
+{% if members %}
+    {% for member in members %}
+    <article class="member-card">
+        <div class="avatar" aria-hidden="true">{{ member.name[:1] }}</div>
+        <div class="member-info">
+            <div class="member-name-line">
+                <span class="member-name">{{ member.name }}</span>
+                {% if member.is_super %}<span class="member-type-badge">超级会员</span>{% endif %}
+            </div>
+            {% if member.is_super %}
+            <div class="member-super-note">免会员费 · 上桌不参与台费分摊</div>
+            {% else %}
+            <div class="member-balance">会员费余额：¥{{ '%.2f'|format(member.fee_balance or 0) }}</div>
+            {% endif %}
+            <div class="member-date">加入时间：{{ member.create_time.strftime('%Y-%m-%d %H:%M') if member.create_time else '—' }}</div>
+        </div>
+        <form method="post" action="{{ url_for('member_delete', mid=member.id) }}" data-confirm="删除会员「{{ member.name }}」会同时移除其会员身份及相关收入记录，确定继续吗？">
+            {% include "_csrf.html" %}
+            <button type="submit" class="btn btn-danger">删除</button>
+        </form>
+    </article>
+    {% endfor %}
+{% else %}
+    <div class="empty">
+        <strong>还没有会员</strong>
+        在上方输入姓名即可新增第一位会员。
+    </div>
+{% endif %}
+{% endblock %}

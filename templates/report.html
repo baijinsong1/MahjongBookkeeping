@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}营业报表{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/report.css') }}">
+{% endblock %}
+
+{% block page_class %}report-page{% endblock %}
+
+{% block content %}
+<header class="topbar">
+    <div>
+        <div class="eyebrow">营业数据</div>
+        <h1>营业报表</h1>
+        <p>{{ period_start.strftime('%Y-%m-%d %H:%M') }} 起 · 截至 {{ period_end.strftime('%m-%d %H:%M') }}</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('order_list_page') }}" class="btn btn-secondary">订单列表</a>
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">返回看板</a>
+    </div>
+</header>
+
+<nav class="period-tabs" aria-label="统计周期">
+    <a href="{{ url_for('report', type='d') }}" class="{{ 'active' if period == 'd' else '' }}">今日</a>
+    <a href="{{ url_for('report', type='w') }}" class="{{ 'active' if period == 'w' else '' }}">本周</a>
+    <a href="{{ url_for('report', type='m') }}" class="{{ 'active' if period == 'm' else '' }}">本月</a>
+    <a href="{{ url_for('report', type='y') }}" class="{{ 'active' if period == 'y' else '' }}">本年</a>
+</nav>
+
+<section class="hero" aria-label="收入汇总">
+    <div class="hero-head">
+        <span class="hero-label">总收入</span>
+        <span class="period-chip">{{ title }}</span>
+    </div>
+    <div class="hero-amount">¥{{ '%.2f'|format(income) }}</div>
+    <div class="hero-note">净收入 ¥{{ '%.2f'|format(net) }} · 已结 {{ order_count }} 笔订单</div>
+    <div class="hero-split">
+        <div>
+            <span>订单实收</span>
+            <strong>¥{{ '%.2f'|format(order_cash_income) }}</strong>
+        </div>
+        <div>
+            <span>会员费收入</span>
+            <strong>¥{{ '%.2f'|format(member_fee_income) }}</strong>
+        </div>
+    </div>
+</section>
+
+<section class="stats-grid" aria-label="经营指标">
+    <div class="stat">
+        <div class="stat-label">总支出</div>
+        <div class="stat-value expense">¥{{ '%.2f'|format(exp_sum) }}</div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">净收入</div>
+        <div class="stat-value {{ 'negative' if net < 0 else 'positive' }}">¥{{ '%.2f'|format(net) }}</div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">已结订单</div>
+        <div class="stat-value">{{ order_count }} 笔</div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">单均实收</div>
+        <div class="stat-value">¥{{ '%.2f'|format(average_order_income) }}</div>
+    </div>
+</section>
+
+{% set composition_total = order_cash_income + member_fee_income %}
+{% if composition_total > 0 or super_discount_total %}
+<section class="report-panel">
+    <div class="section-head">
+        <h2>收入构成</h2>
+        <span>订单实收 + 会员费收入</span>
+    </div>
+    {% if composition_total > 0 %}
+        {% set order_pct = (order_cash_income / composition_total * 100)|round(1) %}
+        {% set member_pct = (100 - order_pct)|round(1) %}
+        <div class="bar-stack" aria-hidden="true">
+            <span class="bar-order" style="width: {{ order_pct }}%"></span>
+            <span class="bar-member" style="width: {{ member_pct }}%"></span>
+        </div>
+        <div class="legend">
+            <span>订单实收 {{ order_pct }}%</span>
+            <span class="member">会员费收入 {{ member_pct }}%</span>
+        </div>
+    {% else %}
+        <div class="empty-composition">当前周期暂无可计入收入</div>
+    {% endif %}
+    {% if super_discount_total %}
+    <div class="memo">超级会员免台费 ¥{{ '%.2f'|format(super_discount_total) }}，该部分不计入营业收入。</div>
+    {% endif %}
+</section>
+{% endif %}
+
+{% if member_revenues %}
+<section class="report-panel">
+    <div class="section-head">
+        <h2>会员费收入明细</h2>
+        <span>{{ member_revenues|length }} 笔 · ¥{{ '%.2f'|format(member_fee_income) }}</span>
+    </div>
+    <div class="fee-list">
+        {% for revenue in member_revenues %}
+        <div class="fee-row">
+            <div>
+                <div class="fee-title">{{ revenue.title }}</div>
+                <div class="fee-meta">{{ revenue.create_time.strftime('%m-%d %H:%M') }} · {{ revenue.remark or '会员费' }}</div>
+            </div>
+            <span class="fee-amount">+¥{{ '%.2f'|format(revenue.amount or 0) }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<div class="orders-head">
+    <h2>订单明细</h2>
+    <span>{{ order_count }} 笔 · 实收 ¥{{ '%.2f'|format(order_cash_income) }}</span>
+</div>
+
+{% if orders %}
+    {% for order in orders %}
+    {% set names = order_person_names_map.get(order.id, []) %}
+    {% set actual_income = (order.total or 0) - (order.member_deduction or 0) - (order.super_discount or 0) %}
+    <article class="report-order-card" id="order-{{ order.id }}">
+        <div class="order-head">
+            <div>
+                <div class="order-title">
+                    <span class="room-name">{{ room_map.get(order.room_id).name if room_map.get(order.room_id) else '未知包间' }}</span>
+                    <span class="order-id">#{{ order.id }}</span>
+                </div>
+                <div class="order-sub">{{ charge_labels.get(order.id, '未设置') }} · {{ durations.get(order.id, '—') }}</div>
+            </div>
+            <div class="order-amount-wrap">
+                <div class="order-amount">¥{{ '%.2f'|format(actual_income) }}</div>
+                <div class="order-date">{{ order.end_time.strftime('%m-%d %H:%M') }}</div>
+            </div>
+        </div>
+
+        <div class="people">
+            <span class="people-label">上桌人员</span>
+            {% if names %}
+                {% for name in names %}<span class="person-chip">{{ name }}</span>{% endfor %}
+            {% else %}
+                <span>无人员记录</span>
+            {% endif %}
+        </div>
+
+        <div class="money-grid">
+            <div class="money-item">
+                <span>台费总额</span>
+                <strong>¥{{ '%.2f'|format(order.table_fee or 0) }}</strong>
+            </div>
+            <div class="money-item">
+                <span>商品消费</span>
+                <strong>¥{{ '%.2f'|format((order.total or 0) - (order.table_fee or 0)) }}</strong>
+            </div>
+            {% if order.member_deduction %}
+            <div class="money-item deduct">
+                <span>会员费抵扣</span>
+                <strong>-¥{{ '%.2f'|format(order.member_deduction) }}</strong>
+            </div>
+            {% endif %}
+            {% if order.super_discount %}
+            <div class="money-item deduct">
+                <span>超级会员免台费</span>
+                <strong>-¥{{ '%.2f'|format(order.super_discount) }}</strong>
+            </div>
+            {% endif %}
+            <div class="money-item">
+                <span>订单原价</span>
+                <strong>¥{{ '%.2f'|format(order.total or 0) }}</strong>
+            </div>
+            <div class="money-item actual">
+                <span>本单实收</span>
+                <strong>¥{{ '%.2f'|format(actual_income) }}</strong>
+            </div>
+        </div>
+
+        {% set person_goods_list = order_person_goods_map.get(order.id, []) %}
+        {% if person_goods_list %}
+        <div class="goods-box">
+            <div class="goods-title">商品明细</div>
+            {% for person_name, order_goods, goods in person_goods_list %}
+            <div class="goods-row">
+                <span><b>{{ person_name }}</b> · {{ goods.name }} × {{ order_goods.num }}</span>
+                <span>¥{{ '%.2f'|format(order_goods.subtotal or 0) }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="no-goods">本单无商品消费</div>
+        {% endif %}
+
+        <div class="card-foot">
+            <form method="post" action="{{ url_for('order_delete') }}" data-confirm="确定删除订单 #{{ order.id }} 吗？删除后不可恢复！">
+                {% include "_csrf.html" %}
+                <input type="hidden" name="order_id" value="{{ order.id }}">
+                <input type="hidden" name="next" value="{{ url_for('report', type=period) }}">
+                <button type="submit" class="delete-button">删除订单</button>
+            </form>
+        </div>
+    </article>
+    {% endfor %}
+{% else %}
+    <div class="empty">
+        <strong>当前周期暂无已结算订单</strong>
+        完成结账后，订单收入和明细会显示在这里。
+    </div>
+{% endif %}
+{% endblock %}

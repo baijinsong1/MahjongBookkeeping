@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}管理员登录{% endblock %}
+
+{% block page_class %}login-page{% endblock %}
+
+{% block content %}
+<section class="login-shell">
+    <div class="login-brand">
+        <div class="eyebrow">棋牌室管理</div>
+        <h1>管理员登录</h1>
+        <p>登录后可管理包间、订单、会员和营业数据。</p>
+    </div>
+
+    <div class="card login-card">
+        {% if not auth_configured %}
+        <div class="alert alert-danger">
+            管理员账号尚未初始化。请在项目终端运行：
+            <div class="code-line">flask --app app create-admin</div>
+        </div>
+        {% endif %}
+
+        <form method="post" action="{{ url_for('login', next=request.args.get('next', '')) }}" class="stack-form">
+            {% include "_csrf.html" %}
+            <div class="form-field">
+                <label class="form-label" for="username">用户名</label>
+                <input id="username" class="form-control" type="text" name="username" value="{{ request.form.get('username', 'admin') }}" maxlength="50" autocomplete="username" required {% if not auth_configured %}disabled{% endif %}>
+            </div>
+            <div class="form-field">
+                <label class="form-label" for="password">密码</label>
+                <input id="password" class="form-control" type="password" name="password" autocomplete="current-password" required {% if not auth_configured %}disabled{% endif %}>
+            </div>
+            <button type="submit" class="btn btn-primary w-100" {% if not auth_configured %}disabled{% endif %}>登录</button>
+        </form>
+        <p class="login-note">连续登录失败会触发临时限制；会话默认 12 小时过期。</p>
+    </div>
+</section>
+{% endblock %}

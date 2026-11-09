@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}棋牌室看板{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages.css') }}">
+{% endblock %}
+
+{% block content %}
+<header class="topbar">
+    <div>
+        <div class="eyebrow">包间看板</div>
+        <h1>棋牌室看板</h1>
+        <p>查看包间状态、开台并进入订单</p>
+    </div>
+    <nav class="actions" aria-label="功能入口">
+        <a href="{{ url_for('order_list_page') }}" class="btn btn-outline-secondary">订单列表</a>
+        <a href="{{ url_for('member_list') }}" class="btn btn-outline-info">会员管理</a>
+        <a href="{{ url_for('report') }}" class="btn btn-outline-primary">营业报表</a>
+        <a href="{{ url_for('goods_list') }}" class="btn btn-outline-success">商品管理</a>
+        <a href="{{ url_for('expense_list') }}" class="btn btn-outline-danger">支出登记</a>
+    </nav>
+</header>
+
+<section class="room-grid" aria-label="包间列表">
+    {% for room in rooms %}
+    {% set current_order = order_map.get(room.id) %}
+    <article class="card room-card{{ ' is-busy' if current_order else '' }}">
+        <div class="room-head">
+            <h2 class="room-name">{{ room.name }}</h2>
+            <span class="status{{ ' busy' if current_order else '' }}">
+                {{ '使用中' if current_order else '空闲' }}
+            </span>
+        </div>
+        <p class="room-meta">
+            {% if current_order %}
+            订单 #{{ current_order.id }} · {{ current_order.start_time.strftime('%m-%d %H:%M') if current_order.start_time else '—' }}
+            {% else %}
+            当前可开台
+            {% endif %}
+        </p>
+        {% if current_order %}
+        <a href="{{ url_for('order_detail', oid=current_order.id) }}" class="btn btn-primary w-100">查看订单</a>
+        {% else %}
+        <a href="{{ url_for('room_preview', room_id=room.id) }}" class="btn btn-success w-100">进入开台</a>
+        {% endif %}
+    </article>
+    {% else %}
+    <div class="empty">
+        <strong>暂无包间</strong>
+        <form method="post" action="{{ url_for('initdb') }}" class="inline-form mt-3">
+            {% include "_csrf.html" %}
+            <button type="submit" class="btn btn-primary">初始化包间和商品</button>
+        </form>
+    </div>
+    {% endfor %}
+</section>
+{% endblock %}

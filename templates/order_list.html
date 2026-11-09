@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}订单记录{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/orders.css') }}">
+{% endblock %}
+
+{% block content %}
+<header class="topbar">
+    <div>
+        <div class="eyebrow">已结订单</div>
+        <h1>订单记录</h1>
+        <p>已结账订单按结账时间倒序排列</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('report') }}" class="btn btn-secondary">营业报表</a>
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">返回看板</a>
+    </div>
+</header>
+
+<section class="order-summary" aria-label="订单汇总">
+    <div class="stat">
+        <div class="stat-label">已结订单</div>
+        <div class="stat-value">{{ order_list|length }} 笔</div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">累计实收</div>
+        <div class="stat-value income">¥{{ '%.2f'|format(total_income) }}</div>
+    </div>
+    <div class="stat">
+        <div class="stat-label">单均实收</div>
+        <div class="stat-value">¥{{ '%.2f'|format(average_income) }}</div>
+    </div>
+</section>
+
+{% if order_list %}
+    {% for order in order_list %}
+    {% set actual_income = (order.total or 0) - (order.member_deduction or 0) - (order.super_discount or 0) %}
+    <article class="order-card">
+        <div class="order-head">
+            <div>
+                <div class="order-title">
+                    <span class="room-name">{{ room_names.get(order.room_id, '未知包间') }}</span>
+                    <span class="order-id">#{{ order.id }}</span>
+                </div>
+                <div class="charge-type">{{ charge_labels.get(order.id, '未设置') }}</div>
+            </div>
+            <div class="order-amount">¥{{ '%.2f'|format(actual_income) }}</div>
+        </div>
+
+        <div class="meta">
+            <div><span class="meta-label">开台</span>{{ order.start_time.strftime('%m-%d %H:%M') if order.start_time else '—' }}</div>
+            <div><span class="meta-label">结账</span>{{ order.end_time.strftime('%m-%d %H:%M') if order.end_time else '—' }}</div>
+            <div><span class="meta-label">时长</span>{{ durations.get(order.id, '—') }}</div>
+            <div><span class="meta-label">人数</span>{{ person_counts.get(order.id, 0) }} 人</div>
+        </div>
+
+        <div class="breakdown">
+            <span>台费 ¥{{ '%.2f'|format(order.table_fee or 0) }}</span>
+            <span>商品 ¥{{ '%.2f'|format((order.total or 0) - (order.table_fee or 0)) }}</span>
+            {% if order.member_deduction %}
+            <span>会员费抵扣 -¥{{ '%.2f'|format(order.member_deduction) }}</span>
+            {% endif %}
+            {% if order.super_discount %}
+            <span>超级会员免台费 -¥{{ '%.2f'|format(order.super_discount) }}</span>
+            {% endif %}
+        </div>
+
+        {% set names = person_names.get(order.id, []) %}
+        <div class="people">
+            <span class="people-label">上桌人员</span>
+            {% if names %}
+                {% for name in names %}<span class="person-chip">{{ name }}</span>{% endfor %}
+            {% else %}
+                <span>无人员记录</span>
+            {% endif %}
+        </div>
+
+        {% if order.remark %}
+        <div class="remark">备注：{{ order.remark }}</div>
+        {% endif %}
+
+        <div class="card-actions">
+            <form method="post" action="{{ url_for('order_delete') }}" data-confirm="确定删除订单 #{{ order.id }} 吗？删除后不可恢复！">
+                {% include "_csrf.html" %}
+                <input type="hidden" name="order_id" value="{{ order.id }}">
+                <input type="hidden" name="next" value="{{ url_for('order_list_page') }}">
+                <button type="submit" class="btn btn-danger">删除订单</button>
+            </form>
+        </div>
+    </article>
+    {% endfor %}
+{% else %}
+    <div class="empty">
+        <strong>暂无已结订单</strong>
+        完成一单结账后，记录会显示在这里。
+    </div>
+{% endif %}
+{% endblock %}

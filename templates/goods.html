@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}商品管理{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages.css') }}">
+{% endblock %}
+
+{% block content %}
+<header class="topbar">
+    <div>
+        <div class="eyebrow">商品目录</div>
+        <h1>商品管理</h1>
+        <p>维护商品价格与启用状态</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">返回看板</a>
+    </div>
+</header>
+
+<section class="card">
+    <h2 class="card-title">新增商品</h2>
+    <form method="post" action="{{ url_for('goods_add') }}" class="form-grid">
+        {% include "_csrf.html" %}
+        <div class="form-field">
+            <label class="form-label" for="goods-name">商品名称</label>
+            <input id="goods-name" class="form-control" name="name" maxlength="50" placeholder="例如：可乐" required>
+        </div>
+        <div class="form-field">
+            <label class="form-label" for="goods-price">单价</label>
+            <input id="goods-price" class="form-control" name="price" type="number" step="0.01" min="0" placeholder="0.00" required>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">添加商品</button>
+        </div>
+    </form>
+</section>
+
+<section class="card">
+    <div class="list-head">
+        <h2>商品列表</h2>
+        <span class="list-count">共 {{ goods|length }} 项</span>
+    </div>
+    {% if goods %}
+    <div class="table-wrap">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>名称</th>
+                    <th>单价</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in goods %}
+                <tr>
+                    <td>{{ item.name }}</td>
+                    <td class="price-cell">¥{{ '%.2f'|format(item.price or 0) }}</td>
+                    <td>
+                        {% if item.is_active %}
+                        <span class="badge active">启用</span>
+                        {% else %}
+                        <span class="badge inactive">停用</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="inline-actions">
+                            <form method="post" action="{{ url_for('goods_toggle', gid=item.id) }}" class="inline-form">
+                                {% include "_csrf.html" %}
+                                <button type="submit" class="btn btn-sm btn-outline-warning">切换状态</button>
+                            </form>
+                            <form method="post" action="{{ url_for('goods_delete', gid=item.id) }}" class="inline-form" data-confirm="确定删除该商品吗？">
+                                {% include "_csrf.html" %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty">
+        <strong>还没有商品</strong>
+        使用上方表单添加第一件商品。
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

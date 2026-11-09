@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}{{ room.name }} - 开台{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages.css') }}">
+{% endblock %}
+
+{% block content %}
+<header class="topbar">
+    <div>
+        <div class="eyebrow">空闲包间</div>
+        <h1>{{ room.name }}</h1>
+        <p>请选择台费方案后开台</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">返回看板</a>
+    </div>
+</header>
+
+<section class="card">
+    <div class="alert alert-light mb-3">当前包间空闲，开台后可添加普通人员、会员和商品。</div>
+    <form method="post" action="{{ url_for('order_open') }}" class="stack-form">
+        {% include "_csrf.html" %}
+        <input type="hidden" name="room_id" value="{{ room.id }}">
+        <div class="form-field">
+            <label class="form-label" for="charge-type">台费方案</label>
+            <select id="charge-type" name="charge_type" class="form-select" required>
+                <option value="">请选择台费</option>
+                <option value="gear80">台费 80 元</option>
+                <option value="gear100">台费 100 元</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-success w-100">确认开台</button>
+    </form>
+</section>
+{% endblock %}

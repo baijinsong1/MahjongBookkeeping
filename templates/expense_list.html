@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}支出记录{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages.css') }}">
+{% endblock %}
+
+{% block content %}
+<header class="topbar">
+    <div>
+        <div class="eyebrow">支出登记</div>
+        <h1>支出记录</h1>
+        <p>仅显示今日支出记录</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('expense_add') }}" class="btn btn-primary">新增支出</a>
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">返回看板</a>
+    </div>
+</header>
+
+<section class="card">
+    <div class="stat-label">今日支出合计</div>
+    <div class="stat-value expense">¥{{ '%.2f'|format(sum_exp or 0) }}</div>
+</section>
+
+{% for item in expense_list %}
+<article class="item-card">
+    <div>
+        <div class="item-title">{{ item.title }}</div>
+        <div class="item-time">
+            {{ item.create_time.strftime('%Y-%m-%d %H:%M') if item.create_time else '—' }}
+            {% if item.remark %} · {{ item.remark }}{% endif %}
+        </div>
+    </div>
+    <div class="item-side">
+        <div class="item-amount">-¥{{ '%.2f'|format(item.amount or 0) }}</div>
+        <form method="post" action="{{ url_for('expense_delete', exp_id=item.id) }}" class="inline-form" data-confirm="确定删除这条支出记录？">
+            {% include "_csrf.html" %}
+            <button type="submit" class="btn btn-danger btn-sm">删除</button>
+        </form>
+    </div>
+</article>
+{% else %}
+<div class="empty">
+    <strong>暂无支出记录</strong>
+    今日的支出会显示在这里。
+</div>
+{% endfor %}
+{% endblock %}

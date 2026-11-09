@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}新增支出{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages.css') }}">
+{% endblock %}
+
+{% block content %}
+<header class="topbar">
+    <div>
+        <div class="eyebrow">支出登记</div>
+        <h1>新增支出</h1>
+        <p>支出会从当前统计周期的净收入中扣除</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('expense_list') }}" class="btn btn-secondary">返回列表</a>
+    </div>
+</header>
+
+<section class="card">
+    {% if error %}
+    <div class="alert alert-danger" role="alert">{{ error }}</div>
+    {% endif %}
+    <form method="post" action="{{ url_for('expense_add') }}" class="stack-form">
+        {% include "_csrf.html" %}
+        <div class="form-field">
+            <label class="form-label" for="expense-title">支出项目</label>
+            <input id="expense-title" class="form-control" name="title" value="{{ request.form.get('title', '') }}" maxlength="100" placeholder="例如：房租、耗材、水电" required>
+        </div>
+        <div class="form-field">
+            <label class="form-label" for="expense-amount">金额</label>
+            <input id="expense-amount" class="form-control" name="amount" value="{{ request.form.get('amount', '') }}" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="0.00" required>
+        </div>
+        <div class="form-field">
+            <label class="form-label" for="expense-remark">备注（可选）</label>
+            <input id="expense-remark" class="form-control" name="remark" value="{{ request.form.get('remark', '') }}" maxlength="200" placeholder="补充说明">
+        </div>
+        <button type="submit" class="btn btn-primary w-100">保存支出记录</button>
+    </form>
+</section>
+{% endblock %}
