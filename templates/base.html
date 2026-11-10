@@ -4,11 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="format-detection" content="telephone=no">
+    <meta name="theme-color" content="#0d332d">
     <title>{% block title %}棋牌室管理{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
     {% block styles %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}app-body{% endblock %}">
     <main class="page {% block page_class %}{% endblock %}">
         {% if session.get('authenticated') %}
         <div class="auth-bar">

@@ -93,6 +93,7 @@ class Order(db.Model):
     super_discount = db.Column(db.Float, default=0, nullable=False)
     total = db.Column(db.Float, default=0)
     remark = db.Column(db.String(200))
+    escaped_person_id = db.Column(db.Integer)
     finished = db.Column(db.Boolean, default=False)
 
 
@@ -111,6 +112,20 @@ class OrderPerson(db.Model):
     name = db.Column(db.String(50))
     is_member = db.Column(db.Boolean, default=False, nullable=False)
     member_id = db.Column(db.Integer)
+
+
+class OrderEscapedPerson(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, nullable=False)
+    person_id = db.Column(db.Integer, nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "order_id",
+            "person_id",
+            name="uq_order_escaped_person",
+        ),
+    )
 
 
 class Member(db.Model):
@@ -149,8 +164,32 @@ def get_fee_info(charge_type):
         return 0, 0
 
 
-def calculate_table_split(charge_type, member_count, super_member_count=0):
-    table_fee, per_person = get_fee_info(charge_type)
+TABLE_PERSON_COUNT = 4
+
+
+def get_escaped_person_ids(order_ids):
+    escaped_by_order = defaultdict(set)
+    if not order_ids:
+        return escaped_by_order
+    rows = OrderEscapedPerson.query.filter(
+        OrderEscapedPerson.order_id.in_(order_ids)
+    ).all()
+    for row in rows:
+        escaped_by_order[row.order_id].add(row.person_id)
+    return escaped_by_order
+
+
+def calculate_table_split(
+    charge_type,
+    member_count,
+    super_member_count=0,
+    billed_person_count=TABLE_PERSON_COUNT,
+):
+    full_table_fee, per_person = get_fee_info(charge_type)
+    table_fee = min(
+        full_table_fee,
+        round(per_person * max(0, billed_person_count), 2),
+    )
     member_deduction = min(table_fee, per_person * max(0, member_count))
     remaining_fee = max(0, table_fee - member_deduction)
     super_discount = min(remaining_fee, per_person * max(0, super_member_count))
@@ -490,6 +529,30 @@ def ensure_database_schema():
                     "ADD COLUMN super_discount FLOAT NOT NULL DEFAULT 0"
                 )
             )
+    if "escaped_person_id" not in order_columns:
+        with db.engine.begin() as connection:
+            connection.execute(
+                text(
+                    'ALTER TABLE "order" '
+                    "ADD COLUMN escaped_person_id INTEGER"
+                )
+            )
+
+    with db.engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO order_escaped_person (order_id, person_id) "
+                'SELECT o.id, o.escaped_person_id FROM "order" o '
+                "JOIN order_person p ON p.id = o.escaped_person_id "
+                "AND p.order_id = o.id "
+                "WHERE o.escaped_person_id IS NOT NULL "
+                "AND NOT EXISTS ("
+                "SELECT 1 FROM order_escaped_person e "
+                "WHERE e.order_id = o.id "
+                "AND e.person_id = o.escaped_person_id"
+                ")"
+            )
+        )
 
     with db.engine.begin() as connection:
         connection.execute(
@@ -571,7 +634,16 @@ def index():
     rooms = Room.query.all()
     orders = Order.query.filter_by(finished=False).all()
     order_map = {o.room_id: o for o in orders}
-    return render_template("index.html", rooms=rooms, order_map=order_map)
+    busy_count = len(order_map)
+    return render_template(
+        "index.html",
+        rooms=rooms,
+        order_map=order_map,
+        busy_count=busy_count,
+        free_count=max(0, len(rooms) - busy_count),
+        member_count=Member.query.count(),
+        today_label=datetime.now().strftime("%Y.%m.%d"),
+    )
 
 
 # ========== 会员管理 ==========
@@ -810,6 +882,18 @@ def order_detail(oid):
     room = db.session.get(Room, order.room_id)
     goods_list = Goods.query.filter_by(is_active=True).all()
     persons = OrderPerson.query.filter_by(order_id=oid).all()
+    escaped_person_ids = get_escaped_person_ids([oid]).get(oid, set())
+    billed_person_count = max(
+        0, TABLE_PERSON_COUNT - len(escaped_person_ids)
+    )
+    escaped_persons = [
+        person for person in persons if person.id in escaped_person_ids
+    ]
+    billing_persons = [
+        person
+        for person in persons
+        if person.id not in escaped_person_ids
+    ]
     member_ids = {person.member_id for person in persons if person.member_id}
     member_records = {
         member.id: member
@@ -824,10 +908,12 @@ def order_detail(oid):
         and person.member_id in member_records
         and member_records[person.member_id].is_super
     }
-    super_member_count = len(super_person_ids)
+    super_member_count = sum(
+        1 for person in billing_persons if person.id in super_person_ids
+    )
     normal_member_count = sum(
         1
-        for person in persons
+        for person in billing_persons
         if person.is_member and person.id not in super_person_ids
     )
     member_count = normal_member_count + super_member_count
@@ -848,6 +934,7 @@ def order_detail(oid):
 
     person_goods_sum = {}
     person_items = {}
+    escaped_goods_sum = 0
     for p in persons:
         person_goods_sum[p.id] = 0
         person_items[p.id] = []
@@ -855,14 +942,29 @@ def order_detail(oid):
     for og, g in order_goods:
         pid = og.person_id
         if pid in person_goods_sum:
-            person_goods_sum[pid] += og.subtotal
+            if pid in escaped_person_ids:
+                escaped_goods_sum += og.subtotal
+            else:
+                person_goods_sum[pid] += og.subtotal
             person_items[pid].append((og, g))
 
-    full_table_fee, per_table, member_deduction, super_discount, cash_table_fee = (
-        calculate_table_split(
-            order.charge_type, normal_member_count, super_member_count
+    if order.finished:
+        full_table_fee = order.table_fee or 0
+        per_table = get_fee_info(order.charge_type)[1]
+        member_deduction = order.member_deduction or 0
+        super_discount = order.super_discount or 0
+        cash_table_fee = max(
+            0, full_table_fee - member_deduction - super_discount
         )
-    )
+    else:
+        full_table_fee, per_table, member_deduction, super_discount, cash_table_fee = (
+            calculate_table_split(
+                order.charge_type,
+                normal_member_count,
+                super_member_count,
+                billed_person_count,
+            )
+        )
     member_balances = {
         person.id: (
             member_records[person.member_id].fee_balance
@@ -873,7 +975,12 @@ def order_detail(oid):
         if person.is_member
     }
     person_table_fee = {
-        person.id: 0 if person.id in super_person_ids else per_table
+        person.id: (
+            0
+            if person.id in super_person_ids
+            or person.id in escaped_person_ids
+            else per_table
+        )
         for person in persons
     }
     person_total = {}
@@ -904,6 +1011,14 @@ def order_detail(oid):
         cash_table_fee=cash_table_fee,
         member_balances=member_balances,
         available_members=available_members,
+        escaped_persons=escaped_persons,
+        escaped_person_ids=escaped_person_ids,
+        billed_person_count=billed_person_count,
+        escaped_names_label="、".join(
+            person.name for person in escaped_persons
+        ),
+        escaped_goods_sum=round(escaped_goods_sum, 2),
+        person_limit=TABLE_PERSON_COUNT,
     )
 
 
@@ -917,6 +1032,11 @@ def order_add_person():
     if order.finished:
         flash("订单已结账，不能继续添加人员")
         return redirect(url_for("order_list_page"))
+
+    person_count = OrderPerson.query.filter_by(order_id=order.id).count()
+    if person_count >= TABLE_PERSON_COUNT:
+        flash(f"每桌最多 {TABLE_PERSON_COUNT} 人，当前订单已有 {person_count} 人")
+        return redirect(url_for("order_detail", oid=order.id))
 
     name = request.form.get("name", "").strip()
     if not name:
@@ -945,6 +1065,11 @@ def order_add_member():
     if order.finished:
         flash("订单已结账，不能继续添加会员")
         return redirect(url_for("order_list_page"))
+
+    person_count = OrderPerson.query.filter_by(order_id=order.id).count()
+    if person_count >= TABLE_PERSON_COUNT:
+        flash(f"每桌最多 {TABLE_PERSON_COUNT} 人，当前订单已有 {person_count} 人")
+        return redirect(url_for("order_detail", oid=order.id))
 
     member_id = request.form.get("member_id", type=int)
     member = db.session.get(Member, member_id) if member_id else None
@@ -994,8 +1119,16 @@ def order_add_member():
 def order_del_person():
     oid = int(request.form.get("oid"))
     pid = int(request.form.get("pid"))
+    order = db.session.get(Order, oid)
+    if not order:
+        flash("订单不存在或已被删除")
+        return redirect(url_for("order_list_page"))
+    if order.finished:
+        flash("订单已结账，不能删除人员")
+        return redirect(url_for("order_detail", oid=oid))
     # 删除这个人对应的所有商品记录
     OrderGoods.query.filter_by(order_id=oid, person_id=pid).delete()
+    OrderEscapedPerson.query.filter_by(order_id=oid, person_id=pid).delete()
     # 删除人员本身
     p = OrderPerson.query.get_or_404(pid)
     db.session.delete(p)
@@ -1068,7 +1201,35 @@ def order_close():
         flash(f"订单 #{order.id} 已结账，不能重复结账")
         return redirect(url_for("order_list_page"))
 
+    escaped_person_ids = set()
+    for raw_person_id in request.form.getlist("escaped_person_ids"):
+        try:
+            person_id = int(raw_person_id)
+        except (TypeError, ValueError):
+            flash("逃单人员参数错误，请重新选择")
+            return redirect(url_for("order_detail", oid=order.id))
+        if person_id > 0:
+            escaped_person_ids.add(person_id)
+
+    escaped_persons = []
+    if escaped_person_ids:
+        escaped_persons = (
+            OrderPerson.query.filter(
+                OrderPerson.order_id == order.id,
+                OrderPerson.id.in_(escaped_person_ids),
+            )
+            .order_by(OrderPerson.id.asc())
+            .all()
+        )
+        if len(escaped_persons) != len(escaped_person_ids):
+            flash("逃单人员不属于当前订单，请重新选择")
+            return redirect(url_for("order_detail", oid=order.id))
+
     remark = request.form.get("remark", "").strip()
+    if escaped_persons:
+        escaped_names = "、".join(person.name for person in escaped_persons)
+        escaped_note = f"当前订单{escaped_names}逃单"
+        remark = f"{remark}；{escaped_note}" if remark else escaped_note
     if len(remark) > 200:
         flash("备注不能超过 200 个字符")
         return redirect(url_for("order_detail", oid=order.id))
@@ -1078,6 +1239,8 @@ def order_close():
     ).all()
     members_on_order = []
     for person in member_persons:
+        if person.id in escaped_person_ids:
+            continue
         member = (
             db.session.get(Member, person.member_id)
             if person.member_id
@@ -1092,7 +1255,10 @@ def order_close():
     super_member_count = sum(1 for member in members_on_order if member.is_super)
     table_fee, per_table, member_deduction, super_discount, cash_table_fee = (
         calculate_table_split(
-            order.charge_type, len(normal_members), super_member_count
+            order.charge_type,
+            len(normal_members),
+            super_member_count,
+            max(0, TABLE_PERSON_COUNT - len(escaped_person_ids)),
         )
     )
 
@@ -1103,10 +1269,14 @@ def order_close():
             return redirect(url_for("order_detail", oid=order.id))
         member_charges.append((member, per_table))
 
-    goods_sum = (
-        db.session.query(func.sum(OrderGoods.subtotal)).filter_by(order_id=oid).scalar()
-        or 0
+    goods_query = db.session.query(func.sum(OrderGoods.subtotal)).filter_by(
+        order_id=oid
     )
+    if escaped_person_ids:
+        goods_query = goods_query.filter(
+            OrderGoods.person_id.notin_(escaped_person_ids)
+        )
+    goods_sum = goods_query.scalar() or 0
 
     updated = (
         Order.query.filter(Order.id == order.id, Order.finished.is_(False))
@@ -1114,6 +1284,9 @@ def order_close():
             {
                 Order.end_time: datetime.now(),
                 Order.remark: remark,
+                Order.escaped_person_id: (
+                    escaped_persons[0].id if escaped_persons else None
+                ),
                 Order.table_fee: table_fee,
                 Order.member_deduction: member_deduction,
                 Order.super_discount: super_discount,
@@ -1127,6 +1300,14 @@ def order_close():
         db.session.rollback()
         flash(f"订单 #{order.id} 已结账，不能重复结账")
         return redirect(url_for("order_list_page"))
+
+    OrderEscapedPerson.query.filter_by(order_id=order.id).delete(
+        synchronize_session=False
+    )
+    for person in escaped_persons:
+        db.session.add(
+            OrderEscapedPerson(order_id=order.id, person_id=person.id)
+        )
 
     for member, charge in member_charges:
         deducted = Member.query.filter(
@@ -1192,7 +1373,10 @@ def report():
     )
 
     order_person_goods_map = defaultdict(list)
+    escaped_person_by_order = get_escaped_person_ids(order_ids)
     for og, g, op in order_person_goods_all:
+        if op.id in escaped_person_by_order.get(og.order_id, set()):
+            continue
         order_person_goods_map[og.order_id].append((op.name, og, g))
 
     order_person_names_map = defaultdict(list)
@@ -1313,14 +1497,11 @@ def expense_add():
 
 @app.route("/expense/list")
 def expense_list():
-    today = date.today()
-    today_exp = (
-        Expense.query.filter(Expense.create_time >= today)
-        .order_by(Expense.create_time.desc())
-        .all()
-    )
-    sum_exp = sum(e.amount for e in today_exp)
-    return render_template("expense_list.html", expense_list=today_exp, sum_exp=sum_exp)
+    expenses = Expense.query.order_by(
+        Expense.create_time.desc(), Expense.id.desc()
+    ).all()
+    sum_exp = sum(e.amount for e in expenses)
+    return render_template("expense_list.html", expense_list=expenses, sum_exp=sum_exp)
 
 
 @app.route("/expense/delete/<int:exp_id>", methods=["POST"])
@@ -1342,8 +1523,11 @@ def order_list_page():
 
     room_names = {}
     person_counts = {}
+    billing_counts = {}
     person_names = defaultdict(list)
+    escaped_names = defaultdict(list)
     if order_ids:
+        escaped_by_order = get_escaped_person_ids(order_ids)
         room_ids = {order.room_id for order in order_list}
         room_names = {
             room.id: room.name
@@ -1356,8 +1540,15 @@ def order_list_page():
         )
         for person in persons:
             person_names[person.order_id].append(person.name)
+            if person.id in escaped_by_order.get(person.order_id, set()):
+                escaped_names[person.order_id].append(person.name)
         person_counts = {
-            order_id: len(names) for order_id, names in person_names.items()
+            order_id: len(names) - len(escaped_names[order_id])
+            for order_id, names in person_names.items()
+        }
+        billing_counts = {
+            order_id: max(0, TABLE_PERSON_COUNT - len(escaped_names[order_id]))
+            for order_id in order_ids
         }
 
     total_income = round(
@@ -1373,7 +1564,9 @@ def order_list_page():
         order_list=order_list,
         room_names=room_names,
         person_counts=person_counts,
+        billing_counts=billing_counts,
         person_names=person_names,
+        escaped_names=escaped_names,
         durations={order.id: format_duration(order.start_time, order.end_time) for order in order_list},
         charge_labels={
             order.id: CHARGE_TYPE_LABELS.get(order.charge_type, order.charge_type or "未设置")
@@ -1408,6 +1601,7 @@ def order_delete():
         return redirect(redirect_target)
 
     OrderGoods.query.filter_by(order_id=order_id).delete()
+    OrderEscapedPerson.query.filter_by(order_id=order_id).delete()
     OrderPerson.query.filter_by(order_id=order_id).delete()
     db.session.delete(order)
     db.session.commit()

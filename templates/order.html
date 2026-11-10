@@ -7,18 +7,31 @@
 {% endblock %}
 
 {% block content %}
-<header class="header-bar">
-    <div>
-        <div class="eyebrow">包间订单</div>
-        <h1 class="header-title">{{ room.name }}｜订单 #{{ order.id }}</h1>
+<header class="topbar header-bar">
+    <div class="topbar-main">
+        <span class="page-seal" aria-hidden="true">局</span>
+        <div>
+            <div class="eyebrow">包间订单 · {{ '已结账' if order.finished else '进行中' }}</div>
+            <h1 class="header-title">{{ room.name }}｜订单 #{{ order.id }}</h1>
+            <p>人员、商品与台费明细均汇总在本页</p>
+        </div>
     </div>
-    <a href="{{ url_for('index') }}" class="btn btn-secondary">返回看板</a>
+    <div class="actions">
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">返回看板</a>
+    </div>
 </header>
 
 <section class="card">
     <h2 class="card-title">订单信息</h2>
     <div class="order-info-line">开台时间：{{ order.start_time.strftime('%Y-%m-%d %H:%M') if order.start_time else '—' }}</div>
     <div class="order-info-line">台费档位：{{ charge_label }}</div>
+    {% if escaped_persons %}
+    <div class="alert alert-light mt-3 mb-0">
+        逃单人员：
+        {% for person in escaped_persons %}<strong>{{ person.name }}</strong>{% if not loop.last %}、{% endif %}{% endfor %}。
+        本单台费按 {{ billed_person_count }} 人计算，逃单人员名下商品不计费。
+    </div>
+    {% endif %}
     {% if member_count %}
     <div class="alert alert-success mt-3 mb-0">
         <div>
@@ -38,37 +51,53 @@
 
 <section class="card">
     <h2 class="card-title">添加人员</h2>
-    <form method="post" action="{{ url_for('order_add_person') }}" class="row">
-        {% include "_csrf.html" %}
-        <input type="hidden" name="oid" value="{{ order.id }}">
-        <div class="col-8">
-            <input type="text" name="name" class="form-control" maxlength="50" placeholder="输入姓名" aria-label="人员姓名" required>
-        </div>
-        <div class="col-4">
-            <button type="submit" class="btn btn-primary w-100">添加</button>
-        </div>
-    </form>
+    <div class="person-capacity{% if persons|length >= person_limit %} is-full{% endif %}" aria-label="本桌上桌人数 {{ persons|length }} / {{ person_limit }}">
+        <span class="person-capacity-label">本桌上桌人数</span>
+        <span class="person-capacity-value"><strong>{{ persons|length }}</strong> / {{ person_limit }} 人</span>
+        <span class="person-capacity-dots" aria-hidden="true">
+            {% for seat in range(person_limit) %}
+            <span class="person-capacity-dot{{ ' is-filled' if seat < persons|length else '' }}"></span>
+            {% endfor %}
+        </span>
+    </div>
 
-    <div class="divider"></div>
-    <div class="section-label">会员上桌（普通会员余额扣台费，超级会员免台费）</div>
-    {% if available_members %}
-    <form method="post" action="{{ url_for('order_add_member') }}" class="row">
-        {% include "_csrf.html" %}
-        <input type="hidden" name="oid" value="{{ order.id }}">
-        <div class="col-8">
-            <select name="member_id" class="form-select" aria-label="选择会员" required>
-                <option value="">选择会员</option>
-                {% for member in available_members %}
-                <option value="{{ member.id }}">{{ member.name }}{% if member.is_super %}（超级会员 · 免台费）{% else %}（余额 ¥{{ '%.2f'|format(member.fee_balance or 0) }}）{% endif %}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-4">
-            <button type="submit" class="btn btn-success w-100">会员上桌</button>
-        </div>
-    </form>
+    {% if persons|length >= person_limit %}
+    <div class="alert alert-light person-limit-note mb-0">
+        本桌已有 {{ person_limit }} 人，已达到上桌人数上限。如需更换人员，请先从下方人员列表删除。
+    </div>
     {% else %}
-    <div class="text-muted">暂无可上桌会员，<a href="{{ url_for('member_list') }}">去会员管理新增</a></div>
+        <form method="post" action="{{ url_for('order_add_person') }}" class="row">
+            {% include "_csrf.html" %}
+            <input type="hidden" name="oid" value="{{ order.id }}">
+            <div class="col-8">
+                <input type="text" name="name" class="form-control" maxlength="50" placeholder="输入姓名" aria-label="人员姓名" required>
+            </div>
+            <div class="col-4">
+                <button type="submit" class="btn btn-primary w-100">添加</button>
+            </div>
+        </form>
+
+        <div class="divider"></div>
+        <div class="section-label">会员上桌（普通会员余额扣台费，超级会员免台费）</div>
+        {% if available_members %}
+        <form method="post" action="{{ url_for('order_add_member') }}" class="row">
+            {% include "_csrf.html" %}
+            <input type="hidden" name="oid" value="{{ order.id }}">
+            <div class="col-8">
+                <select name="member_id" class="form-select" aria-label="选择会员" required>
+                    <option value="">选择会员</option>
+                    {% for member in available_members %}
+                    <option value="{{ member.id }}">{{ member.name }}{% if member.is_super %}（超级会员 · 免台费）{% else %}（余额 ¥{{ '%.2f'|format(member.fee_balance or 0) }}）{% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-4">
+                <button type="submit" class="btn btn-success w-100">会员上桌</button>
+            </div>
+        </form>
+        {% else %}
+        <div class="text-muted">暂无可上桌会员，<a href="{{ url_for('member_list') }}">去会员管理新增</a></div>
+        {% endif %}
     {% endif %}
 </section>
 
@@ -80,28 +109,32 @@
         <div class="person-head">
             <div class="person-name">
                 {{ person.name }}
-                {% if person.id in super_person_ids %}
+                {% if person.id in escaped_person_ids %}
+                <span class="escaped-badge">逃单 · 免台费</span>
+                {% elif person.id in super_person_ids %}
                 <span class="super-badge">超级会员 · 免台费</span>
                 {% elif person.is_member %}
                 <span class="member-badge">会员 · 余额扣台费</span>
                 {% endif %}
             </div>
+            {% if not order.finished %}
             <form action="{{ url_for('order_del_person') }}" method="post" class="inline-form" data-confirm="确定删除该人员？该人员所有商品记录也会一并清空！">
                 {% include "_csrf.html" %}
                 <input type="hidden" name="oid" value="{{ order.id }}">
                 <input type="hidden" name="pid" value="{{ person.id }}">
                 <button type="submit" class="btn btn-outline-danger btn-sm">删除</button>
             </form>
+            {% endif %}
         </div>
         <div class="person-meta">
             商品 ¥{{ person_goods_sum[person.id] }} · 台费 ¥{{ person_table_fee[person.id] }} · 合计 ¥{{ person_total[person.id] }}
-            {% if person.id in super_person_ids %} · 超级会员免台费{% elif person.is_member %} · 会员费余额 ¥{{ '%.2f'|format(member_balances.get(person.id, 0)) }}{% endif %}
+            {% if person.id in escaped_person_ids %} · 逃单，名下商品不计费{% elif person.id in super_person_ids %} · 超级会员免台费{% elif person.is_member %} · 会员费余额 ¥{{ '%.2f'|format(member_balances.get(person.id, 0)) }}{% endif %}
         </div>
         {% set items = person_items[person.id] %}
         {% if items %}
             {% for order_goods, goods in items %}
             <div class="goods-line">
-                <span>{{ goods.name }} ×{{ order_goods.num }}</span>
+                <span>{{ goods.name }} ×{{ order_goods.num }}{% if person.id in escaped_person_ids %}（逃单不计费）{% endif %}</span>
                 <span>¥{{ order_goods.subtotal }}</span>
             </div>
             {% endfor %}
@@ -158,8 +191,14 @@
         <span>商品合计</span>
         <span>¥{{ goods_total }}</span>
     </div>
+    {% if escaped_goods_sum %}
+    <div class="item-line text-secondary">
+        <span>逃单商品（已剔除）</span>
+        <span>¥{{ '%.2f'|format(escaped_goods_sum) }}</span>
+    </div>
+    {% endif %}
     <div class="item-line">
-        <span>台费{% if member_count %}（含会员台费优惠）{% else %}（4 人）{% endif %}</span>
+        <span>台费{% if escaped_person_ids %}（按 {{ billed_person_count }} 人计算）{% elif member_count %}（含会员台费优惠）{% else %}（4 人）{% endif %}</span>
         <span>¥{{ table_total }}</span>
     </div>
     {% if member_deduction %}
@@ -200,9 +239,27 @@
     {% if order.finished %}
     <div class="alert alert-success mb-0">该订单已结账，不能重复闭台。<a href="{{ url_for('order_list_page') }}">查看订单记录</a></div>
     {% else %}
-    <form action="{{ url_for('order_close') }}" method="post" data-confirm="确认结账闭台？">
+    <form action="{{ url_for('order_close') }}" method="post" data-confirm="确认结账闭台？每选择 1 名逃单人员，台费减少 1 人分摊，其名下商品不计入应收。">
         {% include "_csrf.html" %}
         <input type="hidden" name="oid" value="{{ order.id }}">
+        {% if persons %}
+        <div class="remark-field">
+            <div class="form-label">逃单人员（可多选）</div>
+            <div class="escape-options">
+                {% for person in persons %}
+                <label class="escape-option">
+                    <input type="checkbox" name="escaped_person_ids" value="{{ person.id }}">
+                    <span>{{ person.name }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            <div class="form-help">不勾选表示无人逃单。每勾选 1 人，台费减少 1 人分摊，名下商品不计入订单金额，并自动备注逃单人员。</div>
+        </div>
+        <div class="remark-field">
+            <label class="form-label" for="order-remark">订单备注（可选）</label>
+            <textarea id="order-remark" name="remark" class="form-control" maxlength="200" rows="3" placeholder="其他需要说明的情况"></textarea>
+        </div>
+        {% endif %}
         <button type="submit" class="btn btn-danger w-100">结账闭台</button>
     </form>
     {% endif %}

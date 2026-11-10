@@ -8,10 +8,13 @@
 
 {% block content %}
 <header class="topbar">
-    <div>
-        <div class="eyebrow">支出登记</div>
-        <h1>支出记录</h1>
-        <p>仅显示今日支出记录</p>
+    <div class="topbar-main">
+        <span class="page-seal" aria-hidden="true">支</span>
+        <div>
+            <div class="eyebrow">支出登记</div>
+            <h1>支出记录</h1>
+            <p>全部支出记录，按登记时间倒序排列</p>
+        </div>
     </div>
     <div class="actions">
         <a href="{{ url_for('expense_add') }}" class="btn btn-primary">新增支出</a>
@@ -19,9 +22,12 @@
     </div>
 </header>
 
-<section class="card">
-    <div class="stat-label">今日支出合计</div>
-    <div class="stat-value expense">¥{{ '%.2f'|format(sum_exp or 0) }}</div>
+<section class="card expense-total-card">
+    <div>
+        <div class="expense-total-label">全部支出合计</div>
+        <div class="expense-total-value">¥{{ '%.2f'|format(sum_exp or 0) }}</div>
+    </div>
+    <div class="expense-total-note">支出将计入营业报表并影响净收入</div>
 </section>
 
 {% for item in expense_list %}
@@ -44,7 +50,7 @@
 {% else %}
 <div class="empty">
     <strong>暂无支出记录</strong>
-    今日的支出会显示在这里。
+    登记后的支出会按时间显示在这里。
 </div>
 {% endfor %}
 {% endblock %}

@@ -6,19 +6,34 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages.css') }}">
 {% endblock %}
 
+{% block page_class %}narrow-page{% endblock %}
+
 {% block content %}
 <header class="topbar">
-    <div>
-        <div class="eyebrow">空闲包间</div>
-        <h1>{{ room.name }}</h1>
-        <p>请选择台费方案后开台</p>
+    <div class="topbar-main">
+        <span class="page-seal" aria-hidden="true">桌</span>
+        <div>
+            <div class="eyebrow">空闲包间</div>
+            <h1>{{ room.name }}</h1>
+            <p>请选择台费方案后开台</p>
+        </div>
     </div>
     <div class="actions">
         <a href="{{ url_for('index') }}" class="btn btn-secondary">返回看板</a>
     </div>
 </header>
 
-<section class="card">
+<section class="card room-preview-card" data-room="{{ room.name }}">
+    <div class="room-preview-grid">
+        <div class="room-preview-feature">
+            <span>当前状态</span>
+            <strong>空闲待客</strong>
+        </div>
+        <div class="room-preview-feature">
+            <span>默认座位</span>
+            <strong>四人雅座</strong>
+        </div>
+    </div>
     <div class="alert alert-light mb-3">当前包间空闲，开台后可添加普通人员、会员和商品。</div>
     <form method="post" action="{{ url_for('order_open') }}" class="stack-form">
         {% include "_csrf.html" %}

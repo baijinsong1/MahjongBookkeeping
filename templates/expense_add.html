@@ -6,12 +6,17 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages.css') }}">
 {% endblock %}
 
+{% block page_class %}narrow-page{% endblock %}
+
 {% block content %}
 <header class="topbar">
-    <div>
-        <div class="eyebrow">支出登记</div>
-        <h1>新增支出</h1>
-        <p>支出会从当前统计周期的净收入中扣除</p>
+    <div class="topbar-main">
+        <span class="page-seal" aria-hidden="true">＋</span>
+        <div>
+            <div class="eyebrow">支出登记</div>
+            <h1>新增支出</h1>
+            <p>支出会从当前统计周期的净收入中扣除</p>
+        </div>
     </div>
     <div class="actions">
         <a href="{{ url_for('expense_list') }}" class="btn btn-secondary">返回列表</a>

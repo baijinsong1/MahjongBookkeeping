@@ -8,17 +8,20 @@
 
 {% block content %}
 <header class="topbar">
-    <div>
-        <div class="eyebrow">商品目录</div>
-        <h1>商品管理</h1>
-        <p>维护商品价格与启用状态</p>
+    <div class="topbar-main">
+        <span class="page-seal" aria-hidden="true">品</span>
+        <div>
+            <div class="eyebrow">商品目录</div>
+            <h1>商品管理</h1>
+            <p>维护商品价格与启用状态</p>
+        </div>
     </div>
     <div class="actions">
         <a href="{{ url_for('index') }}" class="btn btn-secondary">返回看板</a>
     </div>
 </header>
 
-<section class="card">
+<section class="card goods-form-card">
     <h2 class="card-title">新增商品</h2>
     <form method="post" action="{{ url_for('goods_add') }}" class="form-grid">
         {% include "_csrf.html" %}
@@ -36,7 +39,7 @@
     </form>
 </section>
 
-<section class="card">
+<section class="card goods-list-card">
     <div class="list-head">
         <h2>商品列表</h2>
         <span class="list-count">共 {{ goods|length }} 项</span>
@@ -55,7 +58,7 @@
             <tbody>
                 {% for item in goods %}
                 <tr>
-                    <td>{{ item.name }}</td>
+                    <td><span class="goods-table-name">{{ item.name }}</span></td>
                     <td class="price-cell">¥{{ '%.2f'|format(item.price or 0) }}</td>
                     <td>
                         {% if item.is_active %}

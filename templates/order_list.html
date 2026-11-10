@@ -8,10 +8,13 @@
 
 {% block content %}
 <header class="topbar">
-    <div>
-        <div class="eyebrow">已结订单</div>
-        <h1>订单记录</h1>
-        <p>已结账订单按结账时间倒序排列</p>
+    <div class="topbar-main">
+        <span class="page-seal" aria-hidden="true">单</span>
+        <div>
+            <div class="eyebrow">已结订单</div>
+            <h1>订单记录</h1>
+            <p>已结账订单按结账时间倒序排列</p>
+        </div>
     </div>
     <div class="actions">
         <a href="{{ url_for('report') }}" class="btn btn-secondary">营业报表</a>
@@ -37,6 +40,7 @@
 {% if order_list %}
     {% for order in order_list %}
     {% set actual_income = (order.total or 0) - (order.member_deduction or 0) - (order.super_discount or 0) %}
+    {% set escaped_order_names = escaped_names.get(order.id, []) %}
     <article class="order-card">
         <div class="order-head">
             <div>
@@ -53,7 +57,7 @@
             <div><span class="meta-label">开台</span>{{ order.start_time.strftime('%m-%d %H:%M') if order.start_time else '—' }}</div>
             <div><span class="meta-label">结账</span>{{ order.end_time.strftime('%m-%d %H:%M') if order.end_time else '—' }}</div>
             <div><span class="meta-label">时长</span>{{ durations.get(order.id, '—') }}</div>
-            <div><span class="meta-label">人数</span>{{ person_counts.get(order.id, 0) }} 人</div>
+            <div><span class="meta-label">计费人数</span>{{ person_counts.get(order.id, 0) }} 人{% if escaped_order_names %}（{{ escaped_order_names|join('、') }}逃单）{% endif %}</div>
         </div>
 
         <div class="breakdown">
@@ -65,13 +69,18 @@
             {% if order.super_discount %}
             <span>超级会员免台费 -¥{{ '%.2f'|format(order.super_discount) }}</span>
             {% endif %}
+            {% if escaped_order_names %}
+            <span>台费按 {{ billing_counts.get(order.id, 4) }} 人计算 · 逃单商品已剔除</span>
+            {% endif %}
         </div>
 
         {% set names = person_names.get(order.id, []) %}
         <div class="people">
             <span class="people-label">上桌人员</span>
             {% if names %}
-                {% for name in names %}<span class="person-chip">{{ name }}</span>{% endfor %}
+                {% for name in names %}
+                <span class="person-chip{% if name in escaped_order_names %} escaped-chip{% endif %}">{{ name }}{% if name in escaped_order_names %} · 逃单{% endif %}</span>
+                {% endfor %}
             {% else %}
                 <span>无人员记录</span>
             {% endif %}

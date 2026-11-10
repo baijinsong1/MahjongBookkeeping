@@ -10,10 +10,13 @@
 
 {% block content %}
 <header class="topbar">
-    <div>
-        <div class="eyebrow">营业数据</div>
-        <h1>营业报表</h1>
-        <p>{{ period_start.strftime('%Y-%m-%d %H:%M') }} 起 · 截至 {{ period_end.strftime('%m-%d %H:%M') }}</p>
+    <div class="topbar-main">
+        <span class="page-seal" aria-hidden="true">报</span>
+        <div>
+            <div class="eyebrow">营业数据</div>
+            <h1>营业报表</h1>
+            <p>{{ period_start.strftime('%Y-%m-%d %H:%M') }} 起 · 截至 {{ period_end.strftime('%m-%d %H:%M') }}</p>
+        </div>
     </div>
     <div class="actions">
         <a href="{{ url_for('order_list_page') }}" class="btn btn-secondary">订单列表</a>
@@ -145,6 +148,10 @@
                 <span>无人员记录</span>
             {% endif %}
         </div>
+
+        {% if order.remark %}
+        <div class="order-remark">备注：{{ order.remark }}</div>
+        {% endif %}
 
         <div class="money-grid">
             <div class="money-item">

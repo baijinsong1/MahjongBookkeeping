@@ -103,6 +103,7 @@
 .report-order-card .people { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 11px; color: #4b5563; font-size: 12px; }
 .report-order-card .people-label { color: var(--muted); margin-right: 2px; }
 .report-order-card .person-chip { padding: 2px 8px; border-radius: 999px; background: #f3f4f6; color: #374151; }
+.order-remark { margin-top: 9px; padding: 8px 10px; border-radius: 8px; background: #fef2f2; color: #991b1b; font-size: 12px; line-height: 1.5; word-break: break-word; }
 
 .money-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; overflow: hidden; margin-top: 12px; border: 1px solid #edf0f3; border-radius: 10px; background: #edf0f3; }
 .money-item { display: flex; flex-direction: column; gap: 3px; padding: 9px 10px; background: #fafafa; }
@@ -134,4 +135,159 @@
     .report-order-card .order-head { gap: 9px; }
     .report-order-card .room-name { font-size: 18px; }
     .report-order-card .order-amount { font-size: 20px; }
+}
+
+/* Unified report experience */
+.app-body .report-page { max-width: 1040px; }
+.app-body .report-page .eyebrow { color: #9a7339; }
+.app-body .report-page .topbar h1 { margin-top: 0; font-size: clamp(28px, 4vw, 36px); }
+
+.app-body .period-tabs {
+    gap: 5px;
+    width: fit-content;
+    margin-bottom: 16px;
+    padding: 4px;
+    border: 1px solid rgba(24, 64, 55, .08);
+    border-radius: 12px;
+    background: rgba(255, 253, 248, .66);
+}
+
+.app-body .period-tabs a {
+    min-width: 76px;
+    padding: 8px 14px;
+    border-radius: 9px;
+    color: #777f78;
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: .03em;
+}
+
+.app-body .period-tabs a:hover { background: rgba(21, 63, 55, .05); color: var(--primary); }
+.app-body .period-tabs a.active { background: #173f37; color: #f5ead3; box-shadow: 0 5px 15px rgba(21, 63, 55, .15); }
+
+.app-body .report-page .hero {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    margin-bottom: 14px;
+    padding: 25px 27px;
+    border: 1px solid rgba(185, 148, 90, .28);
+    border-radius: 19px;
+    background:
+        radial-gradient(circle at 88% 2%, rgba(185, 148, 90, .24), transparent 36%),
+        linear-gradient(140deg, #173f37 0%, #10352f 54%, #0a2b25 100%);
+    color: #f6eedc;
+    box-shadow: 0 17px 38px rgba(15, 45, 38, .17);
+}
+
+.app-body .report-page .hero::after {
+    position: absolute;
+    right: -32px;
+    bottom: -86px;
+    z-index: -1;
+    width: 230px;
+    height: 230px;
+    border: 1px solid rgba(231, 204, 160, .13);
+    border-radius: 50%;
+    background: none;
+    box-shadow: 0 0 0 28px rgba(231, 204, 160, .025), 0 0 0 58px rgba(231, 204, 160, .018);
+    content: "";
+}
+
+.app-body .report-page .hero-label { color: rgba(247, 239, 221, .62); font-size: 11px; letter-spacing: .1em; }
+.app-body .period-chip { border: 1px solid rgba(231, 204, 160, .22); background: rgba(255, 255, 255, .05); color: #ead3a7; font-size: 10px; letter-spacing: .06em; }
+.app-body .report-page .hero-amount { margin-top: 8px; color: #edd5aa; font-family: var(--font-display); font-size: 45px; font-weight: 600; letter-spacing: .01em; }
+.app-body .report-page .hero-note { color: rgba(247, 239, 221, .6); }
+.app-body .report-page .hero-split { margin-top: 20px; padding-top: 16px; border-top-color: rgba(231, 204, 160, .18); }
+.app-body .report-page .hero-split span { color: rgba(247, 239, 221, .52); font-size: 10px; letter-spacing: .06em; }
+.app-body .report-page .hero-split strong { color: #f7efdf; font-family: var(--font-display); font-size: 19px; font-weight: 600; }
+
+.app-body .stats-grid { gap: 10px; margin-bottom: 14px; }
+.app-body .stats-grid .stat { padding: 15px 16px; }
+.app-body .stats-grid .stat-value { margin-top: 4px; font-size: 20px; }
+
+.app-body .report-panel {
+    margin-bottom: 14px;
+    padding: 19px 20px;
+    border: 1px solid rgba(24, 64, 55, .09);
+    border-radius: 16px;
+    background: rgba(255, 253, 248, .88);
+    box-shadow: 0 9px 24px rgba(31, 49, 41, .045);
+}
+
+.app-body .section-head { margin-bottom: 14px; }
+.app-body .section-head h2 { color: #24483f; font-family: var(--font-display); font-size: 20px; font-weight: 600; }
+.app-body .section-head span { color: #8b9089; font-size: 11px; }
+.app-body .bar-stack { height: 10px; background: #ebe7dc; }
+.app-body .bar-order { background: #285f4c; }
+.app-body .bar-member { background: #c2a064; }
+.app-body .legend { color: #69736d; font-size: 11px; }
+.app-body .legend span::before { background: #285f4c; }
+.app-body .legend span.member::before { background: #c2a064; }
+.app-body .memo { border: 1px solid rgba(185, 148, 90, .15); border-radius: 9px; background: #faf3e5; color: #80602c; font-size: 11px; }
+
+.app-body .fee-row { padding: 11px 0; border-bottom-color: rgba(24, 64, 55, .08); }
+.app-body .fee-title { color: #3b554d; font-size: 13px; }
+.app-body .fee-meta { color: #8b9089; font-size: 11px; }
+.app-body .fee-amount { color: #9b7337; font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+
+.app-body .orders-head { margin: 26px 0 12px; }
+.app-body .orders-head h2 { color: #22473e; font-family: var(--font-display); font-size: 22px; font-weight: 600; }
+.app-body .orders-head span { color: #878d86; font-size: 11px; }
+
+.app-body .report-order-card {
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 13px;
+    padding: 19px 20px;
+    border: 1px solid rgba(24, 64, 55, .09);
+    border-radius: 17px;
+    background: rgba(255, 253, 248, .9);
+    box-shadow: 0 10px 27px rgba(31, 49, 41, .05);
+}
+
+.app-body .report-order-card::before {
+    position: absolute;
+    top: 0;
+    left: 20px;
+    width: 48px;
+    height: 1px;
+    background: linear-gradient(90deg, #c3a264, transparent);
+    content: "";
+}
+
+.app-body .report-order-card .order-head { align-items: center; padding-bottom: 13px; border-bottom-color: rgba(24, 64, 55, .08); }
+.app-body .report-order-card .room-name { color: #1f453b; font-family: var(--font-display); font-size: 23px; font-weight: 600; }
+.app-body .report-order-card .order-id { border: 1px solid rgba(185, 148, 90, .24); background: #f5ecdc; color: #8f682e; }
+.app-body .report-order-card .order-sub { color: #8b9089; font-size: 11px; }
+.app-body .report-order-card .order-amount { color: #2f684f; font-family: var(--font-display); font-size: 25px; font-weight: 600; }
+.app-body .order-date { color: #94988f; }
+.app-body .report-order-card .people { color: #56615b; }
+.app-body .report-order-card .people-label { color: #8e938b; font-size: 10px; letter-spacing: .04em; }
+.app-body .report-order-card .person-chip { border: 1px solid rgba(24, 64, 55, .06); background: #f4f1e9; color: #4b5751; }
+.app-body .order-remark { border-left: 2px solid rgba(164, 72, 62, .45); border-radius: 0 8px 8px 0; background: #fbefec; color: #8c4037; font-size: 11px; }
+
+.app-body .money-grid { display: flex; flex-wrap: wrap; gap: 1px; margin-top: 13px; border-color: rgba(24, 64, 55, .08); border-radius: 11px; background: rgba(24, 64, 55, .08); }
+.app-body .money-item { flex: 1 1 120px; padding: 10px 12px; background: rgba(250, 248, 242, .92); }
+.app-body .money-item span { color: #8d928a; font-size: 10px; }
+.app-body .money-item strong { color: #394e46; font-size: 14px; }
+.app-body .money-item.deduct strong { color: #986b2f; }
+.app-body .money-item.actual { background: #edf6f0; }
+.app-body .money-item.actual strong { color: #2f684f; }
+
+.app-body .goods-box { border: 1px solid rgba(24, 64, 55, .06); border-radius: 10px; background: rgba(248, 246, 240, .78); }
+.app-body .goods-title { color: #8b9089; letter-spacing: .08em; }
+.app-body .goods-row { color: #5b655f; }
+.app-body .goods-row b { color: #375149; }
+.app-body .no-goods { color: #92968e; }
+.app-body .card-foot { margin-top: 13px; padding-top: 11px; border-top-color: rgba(24, 64, 55, .07); }
+.app-body .delete-button { color: #9b453b; font-size: 11px; }
+
+@media (max-width: 640px) {
+    .app-body .period-tabs { width: 100%; }
+    .app-body .period-tabs a { min-width: 0; flex: 1; }
+    .app-body .report-page .hero { padding: 20px; }
+    .app-body .report-page .hero-amount { font-size: 36px; }
+    .app-body .report-panel { padding: 17px; }
+    .app-body .report-order-card { padding: 17px; }
 }
